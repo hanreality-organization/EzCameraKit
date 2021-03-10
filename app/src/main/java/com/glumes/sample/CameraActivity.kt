@@ -10,13 +10,12 @@ import android.view.Display
 import android.view.OrientationEventListener
 import android.view.SurfaceHolder
 import android.widget.ImageView
-import com.glumes.ezcamerakit.CameraKitListenerAdapter
-import com.glumes.ezcamerakit.EzCamera
-import com.glumes.ezcamerakit.EzCameraKit
-import com.glumes.ezcamerakit.RequestOptions
+import com.glumes.ezcamerakit.*
 import com.glumes.ezcamerakit.base.AspectRatio
 import com.glumes.ezcamerakit.base.Size
 import com.glumes.ezcamerakit.utils.Constants
+import com.glumes.sample.util.H264VideoEncoder
+import com.glumes.sample.util.H264VideoEncoder.YUVQueue
 import kotlinx.android.synthetic.main.activity_camera_layout.*
 
 class CameraActivity : AppCompatActivity(), AspectRatioFragment.Listener {
@@ -36,6 +35,10 @@ class CameraActivity : AppCompatActivity(), AspectRatioFragment.Listener {
     lateinit var mOrientationEventListener: OrientationEventListener
 
     lateinit var mDisplay: Display
+
+    private val previewWidth = 640
+    private val previewHeight = 480
+    private val frameRate = 15
 
 
     override fun onAttachedToWindow() {
@@ -64,11 +67,13 @@ class CameraActivity : AppCompatActivity(), AspectRatioFragment.Listener {
         mSurfaceView.holder.addCallback(object : SurfaceHolder.Callback {
             override fun surfaceChanged(holder: SurfaceHolder?, format: Int, width: Int, height: Int) {
                 Log.d(TAG, "width is $width Height is $height")
-                startPreview(holder, 1280, 720)
+                startPreview(holder, previewWidth, previewHeight)
+                H264VideoEncoder.getInstance().initEncoder(previewWidth, previewHeight, frameRate)
+                H264VideoEncoder.getInstance().startEncoderThread()
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder?) {
-
+                H264VideoEncoder.getInstance().close()
             }
 
             override fun surfaceCreated(holder: SurfaceHolder?) {
@@ -142,16 +147,19 @@ class CameraActivity : AppCompatActivity(), AspectRatioFragment.Listener {
 
     fun startPreview(holder: SurfaceHolder?, width: Int, height: Int) {
         mCameraId = Camera.CameraInfo.CAMERA_FACING_BACK
+        val requestOptions = RequestOptions
+                .openBackCamera()
+                .setAspectRatio(AspectRatio.of(4, 3))
+                .setFrameRate(frameRate)
+                .size(width, height)
+                .setListener(cameraKitListener)
+                .autoFocus(true)
 
         engine = EzCameraKit.with(holder)
-                .apply(RequestOptions
-                        .openBackCamera()
-                        .setAspectRatio(AspectRatio.of(16, 9))
-                        .size(width, height)
-                        .setListener(CameraKitListenerAdapter())
-                ).open()
+                .apply(requestOptions)
+                .open()
 
-        engine!!.startPreview()
+        engine?.startPreview()
 
     }
 
@@ -165,5 +173,34 @@ class CameraActivity : AppCompatActivity(), AspectRatioFragment.Listener {
         engine?.aspectRatio = ratio
         mSurfaceView.setAspectRatio(ratio.y, ratio.x)
 
+    }
+
+    private val cameraKitListener = object :CameraKitListener {
+        override fun onPictureTaken(data: ByteArray?) {
+        }
+
+        override fun onPreviewCallback(data: ByteArray?) {
+            data?.let {
+                putYUVData(it, it.size)
+            }
+
+        }
+
+        override fun onCameraPreview() {
+        }
+
+        override fun onCameraOpened() {
+        }
+
+        override fun onCameraClosed() {
+        }
+
+    }
+
+    private fun putYUVData(buffer: ByteArray, length: Int) {
+        if (YUVQueue.size >= 10) {
+            YUVQueue.poll()
+        }
+        YUVQueue.add(buffer)
     }
 }

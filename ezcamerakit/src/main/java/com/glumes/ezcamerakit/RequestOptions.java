@@ -20,6 +20,8 @@ public class RequestOptions {
 
     Size mSize = new Size(1080, 1920);
 
+    int mFrameRate;
+
     boolean mIsEnableFlash;
 
     public int mFlashMode;
@@ -84,6 +86,11 @@ public class RequestOptions {
 
     public RequestOptions setListener(CameraKitListener listener) {
         mListener = listener;
+        return this;
+    }
+
+    public RequestOptions setFrameRate(int frameRate) {
+        mFrameRate = frameRate;
         return this;
     }
 }

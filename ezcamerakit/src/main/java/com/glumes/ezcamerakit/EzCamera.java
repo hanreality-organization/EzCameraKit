@@ -60,6 +60,7 @@ public class EzCamera {
         mParameters = mCamera.getParameters();
 
         mParameters.setPreviewFormat(mRequestOptions.mPixelFormat);
+        mParameters.setPreviewFpsRange(mRequestOptions.mFrameRate * 1000, mRequestOptions.mFrameRate * 1000);
         initParameters();
         adjustCameraParameters();
         mCamera.setParameters(mParameters);
